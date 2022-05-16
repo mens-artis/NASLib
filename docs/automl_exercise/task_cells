@@ -1,0 +1,229 @@
+
+
+
+
+
+%%bash
+optimizer=re
+predictors=(mlp rf)
+
+start_seed=0
+
+# folders:
+# this supposes your location is at NASLib/docs. Change the base_file location based on where you
+# opened the notebook
+base_file=../naslib
+save_dir=regevo_run_0
+out_dir=$save_dir\_$start_seed
+
+# search space / data:
+search_space=nasbench201
+dataset=cifar10
+search_epochs=300
+
+# trials / seeds:
+trials=3
+end_seed=$(($start_seed + $trials - 1))
+
+# create config files
+for i in $(seq 0 $((${#predictors[@]}-1)) )
+do
+    predictor=${predictors[$i]}
+    python $base_file/benchmarks/create_configs.py --predictor $predictor \
+    --epochs $search_epochs --start_seed $start_seed --trials $trials \
+    --out_dir $out_dir --dataset=$dataset --config_type nas_predictor \
+    --search_space $search_space --optimizer $optimizer
+done
+
+
+
+
+### Single iteration
+
+
+
+
+# import some utilities and parse the configuration file
+import logging
+
+from naslib.utils import utils, setup_logger, get_dataset_api
+from naslib.search_spaces import NasBench201SearchSpace as NB201
+from naslib.defaults.trainer import Trainer
+from naslib.search_spaces import NasBench201SearchSpace as NB201
+from naslib.optimizers import RegularizedEvolution as RE
+
+# QUOTE:
+# TODO: add all the utilities, such as config file reading, logging as before.
+# afterwards instantiate the search space, optimizer, trainer and run the search + evaluation
+    
+#config = utils.get_config_from_args(config_type="nas_predictor")
+config = utils.get_config_from_args(args=["--config-file", 
+                                          configuration_file], config_type="oneshot")
+
+#TODO: add all the utilities, such as config file reading, logging as before.
+utils.set_seed(config.seed)
+utils.log_args(config)
+
+logger = setup_logger(config.save + "/log.log")
+logger.setLevel(logging.INFO)
+
+
+#QUOTE: afterwards instantiate the search space, ...
+# instantiate the search space object
+search_space = NB201()
+#QUOTE: afterwards instantiate the ... optimizer, ...
+#QUESTION: config file contains: "optimizer: re", why repeat this here?:
+# instantiate the optimizer object using the configuration file parameters
+optimizer = RE(config)
+# this will load the NAS-Bench-201 data (architectures and their accuracy, runtime, etc).
+dataset_api = get_dataset_api(config.search_space, config.dataset)
+# adapt the search space to the optimizer type
+optimizer.adapt_search_space(search_space, dataset_api=dataset_api)
+
+#QUOTE: afterwards instantiate the ..., trainer ...
+# since the optimizer has parsed the information of the search space, we do not need to pass the search
+# space object to the trainer when instantiating it.
+trainer = Trainer(optimizer, config, lightweight_output=True)
+
+#QUOTE: afterwards instantiate the ... run the search ...
+# call only a method to run the search for the number of iterations specified in the yaml configuration file.
+trainer.search()
+
+#QUOTE: afterwards instantiate the ... run the ... evaluation
+# After the search is done, we want to evaluate the test performance of
+# the best architecture found using the validation set.
+trainer.evaluate(dataset_api=dataset_api)
+
+
+
+# import some utilities and parse the configuration file
+import logging
+
+from pprint import pprint
+
+from naslib.utils import utils, setup_logger, get_dataset_api
+from naslib.search_spaces import NasBench201SearchSpace as NB201
+from naslib.defaults.trainer import Trainer
+from naslib.search_spaces import NasBench201SearchSpace as NB201
+from naslib.optimizers import RegularizedEvolution as RE
+
+# QUOTE:
+# TODO: add all the utilities, such as config file reading, logging as before.
+# afterwards instantiate the search space, optimizer, trainer and run the search + evaluation
+def run_re(configuration_file):
+    #config = utils.get_config_from_args(config_type="nas_predictor")
+    # NOTE: the config parser accepts oneshot as config type, but python $base_file/benchmarks/create_configs.py
+    # does not, this leads to extremely tedious human user parsing of the config parsing procedure,  useless
+    # wasste of time that serves absolutely no educativepurpose, it is simply an oversight from the developers
+    # that made it's way into a lab where it is a burden on a large group of people
+    config = utils.get_config_from_args(args=["--config-file", 
+                                              configuration_file], config_type="oneshot")
+
+    #acquisition function is iterative thompson sampling (ITS)
+    
+    #TODO: add all the utilities, such as config file reading, logging as before.
+    utils.set_seed(config.seed)
+    utils.log_args(config)
+
+    logger = setup_logger(config.save + "/log.log")
+    logger.setLevel(logging.INFO)
+
+    print("CONFIG: ", config)
+
+    #QUOTE: afterwards instantiate the search space, ...
+    # instantiate the search space object
+    search_space = NB201()
+    #QUOTE: afterwards instantiate the ... optimizer, ...
+    #QUESTION: config file contains: "optimizer: re", why repeat this here?:
+    # instantiate the optimizer object using the configuration file parameters
+    optimizer = RE(config)
+    # this will load the NAS-Bench-201 data (architectures and their accuracy, runtime, etc).
+    dataset_api = get_dataset_api(config.search_space, config.dataset)
+    # adapt the search space to the optimizer type
+    optimizer.adapt_search_space(search_space, dataset_api=dataset_api)
+
+    #QUOTE: afterwards instantiate the ..., trainer ...
+    # since the optimizer has parsed the information of the search space, we do not need to pass the search
+    # space object to the trainer when instantiating it.
+    trainer = Trainer(optimizer, config, lightweight_output=True)
+
+    # return
+
+    #QUOTE: afterwards instantiate the ... run the search ...
+    # call only a method to run the search for the number of iterations specified in the yaml configuration file.
+    trainer.search()
+
+    #QUOTE: afterwards instantiate the ... run the ... evaluation
+    # After the search is done, we want to evaluate the test performance of
+    # the best architecture found using the validation set.
+    trainer.evaluate(dataset_api=dataset_api)
+
+
+cf =[
+    "/home/dry/DeepLearningLab2021/AutoML/NASLib/docs/reg_evo_run_0_0/cifar10/configs/nas_predictors/config_re_lgb_0.yaml",
+    "/home/dry/DeepLearningLab2021/AutoML/NASLib/docs/reg_evo_run_0_0/cifar10/configs/nas_predictors/config_re_lgb_1.yaml"
+#config_re_lgb_2.yaml  config_re_mlp_1.yaml
+#config_re_lgb_1.yaml  config_re_mlp_0.yaml  config_re_mlp_2.yaml
+] #moved
+
+for configuration_file in cf:
+    run_re(configuration_file)
+
+
+### Apparently the trainer only searches NASbench, but read back carefully. This is not stated anywhere.
+
+
+
+# import some utilities and parse the configuration file
+import logging
+
+from pprint import pprint
+
+from naslib.utils import utils, setup_logger, get_dataset_api
+from naslib.search_spaces import NasBench201SearchSpace as NB201
+from naslib.defaults.trainer import Trainer
+from naslib.search_spaces import NasBench201SearchSpace as NB201
+from naslib.optimizers import RegularizedEvolution as RE
+
+# Load the predictor evaluator and the predictor (XGBoost in this case)
+from naslib.defaults.predictor_evaluator import PredictorEvaluator
+from naslib.predictors import XGBoost
+from naslib.predictors import LGBoost
+from naslib.predictors import MLPPredictor
+
+# read the new configuration file that has the parameters of the predictor model
+# NOTE: it is important to set config_type="predictor" here
+config = utils.get_config_from_args(args=["--config-file", 
+                                         "/home/dry/DeepLearningLab2021/AutoML/NASLib/docs/reg_evo_run_0_0/cifar10/configs/nas_predictors/config_re_lgb_0.yaml"], 
+                                    config_type="predictor")
+utils.set_seed(config.seed)
+utils.log_args(config)
+
+logger = setup_logger(config.save + "/log.log")
+logger.setLevel(logging.INFO)
+
+
+#QUOTE: afterwards instantiate the search space, ...
+# instantiate the search space object
+search_space = NB201()
+#QUOTE: afterwards instantiate the ... optimizer, ...
+#QUESTION: config file contains: "optimizer: re", why repeat this here?:
+# instantiate the optimizer object using the configuration file parameters
+optimizer = RE(config)
+# this will load the NAS-Bench-201 data (architectures and their accuracy, runtime, etc).
+dataset_api = get_dataset_api(config.search_space, config.dataset)
+# adapt the search space to the optimizer type
+optimizer.adapt_search_space(search_space, dataset_api=dataset_api)
+
+
+# Now instantiate the predictor (every predictor works with certain encoding types for the architecture)
+predictor = LGBoost(encoding_type='adjacency_one_hot', hpo_wrapper=False)
+# Instantiate the evaluator
+predictor_evaluator = PredictorEvaluator(predictor, config=config)
+# similarly to the conventional NAS search that we saw before, the predictor evaluator also adapts to 
+# the search space at hand
+predictor_evaluator.adapt_search_space(search_space, load_labeled=False, 
+                                       dataset_api=dataset_api)
+# No search in this case. We only train the predictor on the training data and evaluate it on the test data.
+# Note that the training data here is the pair (arch, performance) and not (image, label).
+predictor_evaluator.evaluate()
